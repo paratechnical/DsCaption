@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:dscaption/constants/command_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:convert';
@@ -48,11 +49,7 @@ class ImageCaptionerTabState extends State<ImageCaptionerTab> {
       isCaptioning = true;
     });
 
-    String pythonCommand = Platform.isMacOS ? 'python3' : 'python';
-
-    String pipCommand = Platform.isMacOS ? 'pip3' : 'pip';
-
-    if (!await isPythonInstalled(pythonCommand)) {
+    if (!await isPythonInstalled()) {
       setState(() {
         output = 'Python is not installed.';
         isCaptioning = false;
@@ -60,9 +57,9 @@ class ImageCaptionerTabState extends State<ImageCaptionerTab> {
       return;
     }
 
-    await createAndActivateVenv(pythonCommand);
+    await createAndActivateVenv();
 
-    if (!await isBlipCaptionInstalled(pythonCommand, pipCommand)) {
+    if (!await isBlipCaptionInstalled()) {
       bool install = await askUserToInstallBlipCaption();
       if (!install) {
         setState(() {
@@ -71,36 +68,36 @@ class ImageCaptionerTabState extends State<ImageCaptionerTab> {
         return;
       }
       installedBlipCaption =
-          await installBlipCaption(pythonCommand, pipCommand);
+          await installBlipCaption();
     } else {
       installedBlipCaption = true;
     }
 
     if (installedBlipCaption) {
-      await runBlipCaption(pythonCommand);
+      await runBlipCaption();
     }
   }
 
-  Future<bool> isPythonInstalled(String pythonCommand) async {
+  Future<bool> isPythonInstalled() async {
     try {
-      await Process.run(pythonCommand, ['--version']);
+      await Process.run(CommandStrings.pythonCommand, ['--version']);
       return true;
     } catch (e) {
       return false;
     }
   }
 
-  Future<void> createAndActivateVenv(String pythonCommand) async {
-    if (!Directory('currentvenv').existsSync()) {
-      await Process.run(pythonCommand, ['-m', 'venv', 'currentvenv']);
+  Future<void> createAndActivateVenv() async {
+    if (!Directory(CommandStrings.venvName).existsSync()) {
+      await Process.run(CommandStrings.pythonCommand, ['-m', 'venv', CommandStrings.venvName]);
+      await Process.run(CommandStrings.activateVenvCommand,[]);
     }
   }
 
-  Future<bool> isBlipCaptionInstalled(
-      String pythonCommand, String pipCommand) async {
+  Future<bool> isBlipCaptionInstalled() async {
     try {
       ProcessResult blipCheck = await Process.run(
-          'currentvenv/bin/${pipCommand}', ['show', 'blip_caption']);
+          CommandStrings.pipCommandInsideVenv, ['show', 'blip_caption']);
       return blipCheck.exitCode == 0;
     } catch (e) {
       return false;
@@ -128,21 +125,20 @@ class ImageCaptionerTabState extends State<ImageCaptionerTab> {
     );
   }
 
-  Future<bool> installBlipCaption(
-      String pythonCommand, String pipCommand) async {
+  Future<bool> installBlipCaption() async {
     bool installedBlipCaption = false;
     setState(() {
       output += 'installing blip_caption...';
     });
 
     if (Platform.isMacOS) {
-      if (!await installTorchVision(pythonCommand, pipCommand)) {
+      if (!await installTorchVision()) {
         return false;
       }
     }
 
     Process process = await Process.start(
-        'currentvenv/bin/${pipCommand}', ['install', 'blip_caption']);
+        CommandStrings.pipCommandInsideVenv, ['install', 'blip_caption']);
 
     stdoutSubscription = process.stdout.transform(utf8.decoder).listen((data) {
       setState(() {
@@ -174,11 +170,10 @@ class ImageCaptionerTabState extends State<ImageCaptionerTab> {
     return installedBlipCaption;
   }
 
-  Future<bool> installTorchVision(
-      String pythonCommand, String pipCommand) async {
+  Future<bool> installTorchVision() async {
     bool installedTorchVision = false;
 
-    Process process = await Process.start('currentvenv/bin/${pipCommand}', [
+    Process process = await Process.start(CommandStrings.pipCommandInsideVenv, [
       'install',
       '--pre',
       'torch',
@@ -218,13 +213,13 @@ class ImageCaptionerTabState extends State<ImageCaptionerTab> {
     return installedTorchVision;
   }
 
-  Future<void> runBlipCaption(String pythonCommand) async {
+  Future<void> runBlipCaption() async {
     setState(() {
       output += 'obtaining image caption...';
     });
 
     Process process = await Process.start(
-        'currentvenv/bin/${pythonCommand}', ['-m', 'blip_caption', imagePath, '--large']);
+        CommandStrings.pipCommandInsideVenv, ['-m', 'blip_caption', imagePath, '--large']);
 
     stdoutSubscription = process.stdout.transform(utf8.decoder).listen((data) {
       setState(() {

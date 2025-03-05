@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dscaption/constants/command_strings.dart';
 import 'package:dscaption/model/operation_result.dart';
 import 'package:flutter/material.dart';
 
@@ -64,65 +65,56 @@ class CaptionProvider with ChangeNotifier {
     _imagePath = imagePath;
     _startCaptioning();
 
-    String pythonCommand = Platform.isMacOS ? 'python3' : 'python';
-
-    String pipCommand = Platform.isMacOS ? 'pip3' : 'pip';
-
-    if (!await isPythonInstalled(pythonCommand)) {
-      //throw Exception('Python is not installed.');
+    if (!await isPythonInstalled()) {
       _errorOutput += "Python is not installed.\n";
     }
 
-    await createAndActivateVenv(pythonCommand);
+    await createAndActivateVenv();
 
-    if (!await isBlipCaptionInstalled(pythonCommand, pipCommand)) {
+    if (!await isBlipCaptionInstalled()) {
       if (askUserToInstallBlipCaption != null) {
         bool install = await askUserToInstallBlipCaption!.call();
         if (!install) {
-          //throw Exception('blip_caption installation cancelled');
           _errorOutput += "blip_caption installation cancelled\n";
         }
       } else {
-        //throw Exception('could not request blip_caption installation');
         _errorOutput += "could not request blip_caption installation\n";
       }
 
       _installedBlipCaption =
-          await installBlipCaption(pythonCommand, pipCommand);
+          await installBlipCaption();
     } else {
       _installedBlipCaption = true;
     }
 
     if (_installedBlipCaption) {
-      await runBlipCaption(pythonCommand);
+      await runBlipCaption();
     } else {
-      // throw Exception(
-      //     "could not determine wether blip captioning is installed ");
       _errorOutput +=
           "could not determine wether blip captioning is installed\n";
     }
   }
 
-  Future<bool> isPythonInstalled(String pythonCommand) async {
+  Future<bool> isPythonInstalled() async {
     try {
-      await Process.run(pythonCommand, ['--version']);
+      await Process.run(CommandStrings.pythonCommand, ['--version']);
       return true;
     } catch (e) {
       return false;
     }
   }
 
-  Future<void> createAndActivateVenv(String pythonCommand) async {
-    if (!Directory('currentvenv').existsSync()) {
-      await Process.run(pythonCommand, ['-m', 'venv', 'currentvenv']);
+  Future<void> createAndActivateVenv() async {
+    if (!Directory(CommandStrings.venvName).existsSync()) {
+      await Process.run(CommandStrings.pythonCommand, ['-m', 'venv', CommandStrings.venvName]);
+      await Process.run(CommandStrings.activateVenvCommand,[]);
     }
   }
 
-  Future<bool> isBlipCaptionInstalled(
-      String pythonCommand, String pipCommand) async {
+  Future<bool> isBlipCaptionInstalled() async {
     try {
       ProcessResult blipCheck = await Process.run(
-          'currentvenv/bin/${pipCommand}', ['show', 'blip_caption']);
+         CommandStrings.pipCommandInsideVenv, ['show', 'blip_caption']);
       return blipCheck.exitCode == 0;
     } catch (e) {
       //throw Exception('blip_caption installation cancelled');
@@ -132,18 +124,17 @@ class CaptionProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> installBlipCaption(
-      String pythonCommand, String pipCommand) async {
+  Future<bool> installBlipCaption() async {
     bool installedBlipCaption = false;
 
     if (Platform.isMacOS) {
-      if (!await installTorchVision(pythonCommand, pipCommand)) {
+      if (!await installTorchVision()) {
         return false;
       }
     }
 
     Process process = await Process.start(
-        'currentvenv/bin/${pipCommand}', ['install', 'blip_caption']);
+        CommandStrings.pipCommandInsideVenv, ['install', 'blip_caption']);
 
     stdoutSubscription = process.stdout.transform(utf8.decoder).listen((data) {
       _generalOutput += data + "\n";
@@ -167,11 +158,10 @@ class CaptionProvider with ChangeNotifier {
     return installedBlipCaption;
   }
 
-  Future<bool> installTorchVision(
-      String pythonCommand, String pipCommand) async {
+  Future<bool> installTorchVision() async {
     bool installedTorchVision = false;
 
-    Process process = await Process.start('currentvenv/bin/${pipCommand}', [
+    Process process = await Process.start(CommandStrings.pipCommandInsideVenv, [
       'install',
       '--pre',
       'torch',
@@ -204,10 +194,10 @@ class CaptionProvider with ChangeNotifier {
     return installedTorchVision;
   }
 
-  Future<void> runBlipCaption(String pythonCommand) async {
+  Future<void> runBlipCaption() async {
     _generalOutput += 'obtaining image caption...\n';
 
-    Process process = await Process.start('currentvenv/bin/${pythonCommand}',
+    Process process = await Process.start(CommandStrings.pythonCommandInsideVenv,
         ['-m', 'blip_caption', _imagePath, '--large']);
 
     stdoutSubscription = process.stdout.transform(utf8.decoder).listen((data) {
@@ -243,3 +233,4 @@ class CaptionProvider with ChangeNotifier {
     return paragraphs.isNotEmpty ? paragraphs.last : '';
   }
 }
+

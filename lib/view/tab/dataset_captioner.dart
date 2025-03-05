@@ -22,6 +22,7 @@ class DatasetCaptionerTabState extends State<DatasetCaptionerTab> {
   List<File> imageFiles = [];
   List<File> textFiles = [];
   String errorMessage = '';
+  List<String> imageFileExtensions = ['.jpg', '.png'];
 
   void refreshFiles() async {
     setState(() {
@@ -32,7 +33,7 @@ class DatasetCaptionerTabState extends State<DatasetCaptionerTab> {
     if (await Directory(folderPath).exists()) {
       List<FileSystemEntity> files = Directory(folderPath).listSync();
       imageFiles = files
-          .where((file) => file.path.endsWith('.png'))
+          .where((file) => imageFileExtensions.any((ext) => file.path.endsWith(ext)))
           .map((file) => File(file.path))
           .toList();
       textFiles = files
@@ -63,7 +64,7 @@ class DatasetCaptionerTabState extends State<DatasetCaptionerTab> {
 
     if (await Directory(separationDir).exists()) {
       for (var imageFile in imageFiles) {
-        String textFilePath = imageFile.path.replaceAll('.png', '.txt');
+        String textFilePath = imageFile.path.replaceAll(RegExp(r'\.(jpg|png)$'), '.txt');
         if (!await File(textFilePath).exists()) {
           File(imageFile.path)
               .copy('$separationDir/${imageFile.path.split('/').last}');
@@ -175,7 +176,7 @@ class DatasetCaptionerTabState extends State<DatasetCaptionerTab> {
                   itemBuilder: (context, index) {
                     File imageFile = imageFiles[index];
                     String textFilePath =
-                        imageFile.path.replaceAll('.png', '.txt');
+                        imageFile.path.replaceAll(RegExp(r'\.(jpg|png)$'), '.txt');
                     TextEditingController textController =
                         TextEditingController();
 
@@ -192,7 +193,7 @@ class DatasetCaptionerTabState extends State<DatasetCaptionerTab> {
                             Consumer<CaptionProvider>(
                                 builder: (context, captionProvider, child) {
                                   
-                              if (captionProvider.askUserToInstallBlipCaption !=
+                              if (captionProvider.askUserToInstallBlipCaption ==
                                   null) {
                                 captionProvider.askUserToInstallBlipCaption =
                                     askUserToInstallBlipCaption;
