@@ -23,6 +23,13 @@ class DatasetCaptionerTabState extends State<DatasetCaptionerTab> {
   List<File> textFiles = [];
   String errorMessage = '';
   List<String> imageFileExtensions = ['.jpg', '.png'];
+  final Map<String, TextEditingController> _textControllers = {};
+
+  @override
+  void dispose() {
+    _textControllers.values.forEach((controller) => controller.dispose());
+    super.dispose();
+  }
 
   void refreshFiles() async {
     setState(() {
@@ -40,6 +47,28 @@ class DatasetCaptionerTabState extends State<DatasetCaptionerTab> {
           .where((file) => file.path.endsWith('.txt'))
           .map((file) => File(file.path))
           .toList();
+
+      // Clean up old controllers for files that no longer exist
+      _textControllers.removeWhere((path, controller) {
+        bool shouldRemove = !imageFiles.any((file) => 
+          file.path.replaceAll(RegExp(r'\.(jpg|png)$'), '.txt') == path);
+        if (shouldRemove) {
+          controller.dispose();
+        }
+        return shouldRemove;
+      });
+
+      // Update existing controllers and create new ones with current file content
+      for (var imageFile in imageFiles) {
+        String textFilePath = imageFile.path.replaceAll(RegExp(r'\.(jpg|png)$'), '.txt');
+        if (_textControllers.containsKey(textFilePath)) {
+          // Update existing controller with current file content
+          if (File(textFilePath).existsSync()) {
+            _textControllers[textFilePath]!.text = File(textFilePath).readAsStringSync();
+          }
+        }
+      }
+
       setState(() {});
     } else {
       setState(() {
@@ -177,12 +206,13 @@ class DatasetCaptionerTabState extends State<DatasetCaptionerTab> {
                     File imageFile = imageFiles[index];
                     String textFilePath =
                         imageFile.path.replaceAll(RegExp(r'\.(jpg|png)$'), '.txt');
-                    TextEditingController textController =
-                        TextEditingController();
-
-                    if (File(textFilePath).existsSync()) {
-                      textController.text =
-                          File(textFilePath).readAsStringSync();
+                    
+                    if (!_textControllers.containsKey(textFilePath)) {
+                      _textControllers[textFilePath] = TextEditingController(
+                        text: File(textFilePath).existsSync() 
+                            ? File(textFilePath).readAsStringSync() 
+                            : ''
+                      );
                     }
 
                     return Column(
@@ -204,7 +234,7 @@ class DatasetCaptionerTabState extends State<DatasetCaptionerTab> {
                                     captionProvider.captioningInProgress
                                         ? null
                                         : captionImage(captionProvider,
-                                            imageFile, textController),
+                                            imageFile, _textControllers[textFilePath]!),
                                 child: Text(captionProvider.captioningInProgress
                                     ? 'Captioning'
                                     : 'Caption'),
@@ -232,7 +262,8 @@ class DatasetCaptionerTabState extends State<DatasetCaptionerTab> {
                             Image.file(imageFile, width: 100, height: 100),
                             Expanded(
                               child: TextField(
-                                controller: textController,
+                                key: ValueKey(textFilePath), // Add a key to maintain state
+                                controller: _textControllers[textFilePath],
                                 maxLines: 5,
                                 decoration: InputDecoration(
                                   border: OutlineInputBorder(),
@@ -242,7 +273,7 @@ class DatasetCaptionerTabState extends State<DatasetCaptionerTab> {
                             ElevatedButton(
                               onPressed: () {
                                 File(textFilePath)
-                                    .writeAsStringSync(textController.text);
+                                    .writeAsStringSync(_textControllers[textFilePath]!.text);
                               },
                               child: Text('Update'),
                             ),
