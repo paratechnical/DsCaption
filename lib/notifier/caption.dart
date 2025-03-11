@@ -117,7 +117,6 @@ class CaptionProvider with ChangeNotifier {
          CommandStrings.pipCommandInsideVenv, ['show', 'blip_caption']);
       return blipCheck.exitCode == 0;
     } catch (e) {
-      //throw Exception('blip_caption installation cancelled');
       _errorOutput +=
           "blip_caption installation cancelled\n";
       return false;

@@ -148,6 +148,51 @@ class DatasetCaptionerTabState extends State<DatasetCaptionerTab> {
     );
   }
 
+  Widget _buildImageAndTextRow(File imageFile, String textFilePath) {
+    return Consumer<CaptionProvider>(
+      builder: (context, captionProvider, child) {
+        return Stack(
+          children: [
+            Row(
+              children: [
+                Image.file(imageFile, width: 100, height: 100),
+                Expanded(
+                  child: TextField(
+                    key: ValueKey(textFilePath),
+                    controller: _textControllers[textFilePath],
+                    maxLines: 5,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    File(textFilePath)
+                        .writeAsStringSync(_textControllers[textFilePath]!.text);
+                  },
+                  child: Text('Update'),
+                ),
+              ],
+            ),
+            if (captionProvider.captioningInProgress && 
+                captionProvider.imagePath == imageFile.path)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black54,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -257,28 +302,7 @@ class DatasetCaptionerTabState extends State<DatasetCaptionerTab> {
                             ),
                           ],
                         ),
-                        Row(
-                          children: [
-                            Image.file(imageFile, width: 100, height: 100),
-                            Expanded(
-                              child: TextField(
-                                key: ValueKey(textFilePath), // Add a key to maintain state
-                                controller: _textControllers[textFilePath],
-                                maxLines: 5,
-                                decoration: InputDecoration(
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                            ),
-                            ElevatedButton(
-                              onPressed: () {
-                                File(textFilePath)
-                                    .writeAsStringSync(_textControllers[textFilePath]!.text);
-                              },
-                              child: Text('Update'),
-                            ),
-                          ],
-                        ),
+                        _buildImageAndTextRow(imageFile, textFilePath),
                       ],
                     );
                   },
